@@ -2,6 +2,7 @@ package rate_limiter
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -30,6 +31,7 @@ func (c *counterStrategy) Run(ctx context.Context, r *Request) (*Result, error) 
 	incrResult := p.Incr(ctx, r.Key)
 	ttlResult := p.TTL(ctx, r.Key)
 
+	// make sure all errors are handled
 	if _, err := p.Exec(ctx); err != nil {
 		log.Logger().Error("Failed to execute increase to key", zap.Error(err))
 		return nil, err
@@ -44,7 +46,7 @@ func (c *counterStrategy) Run(ctx context.Context, r *Request) (*Result, error) 
 
 	var ttlDuration time.Duration
 	duration, err := ttlResult.Result()
-	if err != nil {
+	if err != nil || duration == -1 {
 		// returns duration = -1 if the key exists but has no associated expire.
 		// returns duration = -2 if the key does not exist.
 		ttlDuration = r.Duration
@@ -57,6 +59,8 @@ func (c *counterStrategy) Run(ctx context.Context, r *Request) (*Result, error) 
 	}
 
 	expiresAt := c.timeNow().Add(ttlDuration)
+	log.Logger().Info(fmt.Sprintf("The key [%s] will expire", r.Key),
+		zap.String("ttlDuration", ttlDuration.String()))
 
 	if requests := uint64(totalRequests); requests > r.Limit {
 		return &Result{
