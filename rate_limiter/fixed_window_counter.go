@@ -10,22 +10,22 @@ import (
 	"go.uber.org/zap"
 )
 
-// ensure that counterStrategy satisfies an interface Strategy
-var _ Strategy = &counterStrategy{}
+// ensure that fixedWindowStrategy satisfies an interface Strategy
+var _ Strategy = &fixedWindowStrategy{}
 
-type counterStrategy struct {
+type fixedWindowStrategy struct {
 	client  *redis.Client
 	timeNow func() time.Time
 }
 
-func NewCounterStrategy(c *redis.Client, now func() time.Time) *counterStrategy {
-	return &counterStrategy{
+func NewFixedWindowStrategy(c *redis.Client, now func() time.Time) *fixedWindowStrategy {
+	return &fixedWindowStrategy{
 		c,
 		now,
 	}
 }
 
-func (c *counterStrategy) Run(ctx context.Context, r *Request) (*Result, error) {
+func (c *fixedWindowStrategy) Run(ctx context.Context, r *Request) (*Result, error) {
 	// Using Redis pipeline to optimize network performance
 	p := c.client.Pipeline()
 	incrResult := p.Incr(ctx, r.Key)

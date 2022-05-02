@@ -149,7 +149,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/hello", HelloHandler)
 
-	strategy := rl.NewCounterStrategy(client, func() time.Time {
+	strategy := rl.NewFixedWindowStrategy(client, func() time.Time {
 		return time.Now()
 	})
 
