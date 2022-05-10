@@ -10,62 +10,62 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var now = time.Date(2022, 5, 10, 9, 15, 0, 0, time.UTC)
-
-var tests = []struct {
-	name       string
-	runs       int
-	request    *Request
-	lastResult *Result
-	lastErr    error
-	advance    time.Duration
-}{
-	{
-		name: "returns Allow for request under limit",
-		runs: 50,
-		request: &Request{
-			Key:      "user",
-			Limit:    60,
-			Duration: time.Minute,
-		},
-		lastResult: &Result{
-			State:         Allow,
-			TotalRequests: 50,
-			ExpiredAt:     time.Date(2022, 5, 10, 9, 16, 0, 0, time.UTC),
-		},
-	},
-	{
-		name: "returns Deny for request under limit",
-		runs: 51,
-		request: &Request{
-			Key:      "user",
-			Limit:    50,
-			Duration: time.Minute,
-		},
-		lastResult: &Result{
-			State:         Deny,
-			TotalRequests: 51,
-			ExpiredAt:     time.Date(2022, 5, 10, 9, 16, 0, 0, time.UTC),
-		},
-	},
-	{
-		name: "key expires and start again",
-		runs: 100,
-		request: &Request{
-			Key:      "user",
-			Limit:    100,
-			Duration: time.Minute,
-		},
-		lastResult: &Result{
-			State:         Allow,
-			TotalRequests: 40,
-			ExpiredAt:     time.Date(2022, 5, 10, 9, 17, 0, 0, time.UTC),
-		},
-		advance: time.Second,
-	},
-}
-
 func TestFixedWindowStrategy_Run(t *testing.T) {
+	var now = time.Date(2022, 5, 10, 9, 15, 0, 0, time.UTC)
+
+	var tests = []struct {
+		name       string
+		runs       int
+		request    *Request
+		lastResult *Result
+		lastErr    error
+		advance    time.Duration
+	}{
+		{
+			name: "returns Allow for request under limit",
+			runs: 50,
+			request: &Request{
+				Key:      "user",
+				Limit:    60,
+				Duration: time.Minute,
+			},
+			lastResult: &Result{
+				State:         Allow,
+				TotalRequests: 50,
+				ExpiredAt:     time.Date(2022, 5, 10, 9, 16, 0, 0, time.UTC),
+			},
+		},
+		{
+			name: "returns Deny for request under limit",
+			runs: 51,
+			request: &Request{
+				Key:      "user",
+				Limit:    50,
+				Duration: time.Minute,
+			},
+			lastResult: &Result{
+				State:         Deny,
+				TotalRequests: 51,
+				ExpiredAt:     time.Date(2022, 5, 10, 9, 16, 0, 0, time.UTC),
+			},
+		},
+		{
+			name: "key expires and start again (returns Allow)",
+			runs: 100,
+			request: &Request{
+				Key:      "user",
+				Limit:    100,
+				Duration: time.Minute,
+			},
+			lastResult: &Result{
+				State:         Allow,
+				TotalRequests: 40,
+				ExpiredAt:     time.Date(2022, 5, 10, 9, 17, 0, 0, time.UTC),
+			},
+			advance: time.Second,
+		},
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server, err := miniredis.Run()
