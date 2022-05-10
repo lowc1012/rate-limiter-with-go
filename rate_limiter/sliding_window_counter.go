@@ -84,7 +84,7 @@ func (s *slidingWindowStrategy) Run(ctx context.Context, r *Request) (*Result, e
 	}
 
 	numRequest := uint64(countResult)
-	if numRequest >= r.Limit {
+	if numRequest > r.Limit {
 		return &Result{
 			Deny,
 			numRequest,
