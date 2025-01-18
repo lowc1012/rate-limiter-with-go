@@ -19,17 +19,15 @@ type leakyBucketRecord struct {
 type LeakyBucket struct {
     sync.Mutex
     client    *redis.Client
-    rate      float64       // consume rate per second
-    queue     chan struct{} // FIFO queue to store request
-    capacity  uint32        // maximum capacity of the bucket
-    keyPrefix string        // key prefix for bucket records
+    rate      float64 // consume rate per second
+    capacity  uint32  // maximum capacity of the bucket
+    keyPrefix string  // key prefix for bucket records
 }
 
 func NewLeakyBucket(client *redis.Client, rate float64, capacity uint32) *LeakyBucket {
     return &LeakyBucket{
         client:    client,
         rate:      rate,
-        queue:     make(chan struct{}, capacity),
         capacity:  capacity,
         keyPrefix: "leaky_bucket:",
     }
@@ -71,7 +69,6 @@ func (b *LeakyBucket) getKey(ip string) string {
     return b.keyPrefix + ip
 }
 
-// leak consume a token in queue
 func (b *LeakyBucket) leak(ctx context.Context, key string) error {
     now := time.Now().Unix()
     var bucketRec leakyBucketRecord
