@@ -11,7 +11,7 @@ import (
     "github.com/redis/go-redis/v9"
 )
 
-type BucketRecord struct {
+type bucketRecord struct {
     TokenCount   float64 `redis:"tokenCount"`
     LastLeakTime int64   `redis:"lastLeakTime"`
 }
@@ -56,7 +56,7 @@ func (b *LeakyBucket) Add(ctx context.Context, ip string) error {
         return err
     }
 
-    var bucketRec BucketRecord
+    var bucketRec bucketRecord
     err = b.client.HGetAll(ctx, key).Scan(&bucketRec)
     if err != nil && !errors.Is(err, redis.Nil) {
         return err
@@ -69,28 +69,6 @@ func (b *LeakyBucket) Add(ctx context.Context, ip string) error {
     return fmt.Errorf("bucket is full")
 }
 
-func (b *LeakyBucket) Allow(ctx context.Context, ip string, n uint32) bool {
-    b.Lock()
-    defer b.Unlock()
-
-    key := b.getKey(ip)
-    err := b.leak(ctx, ip)
-    if err != nil {
-        return false
-    }
-
-    var bucketRec BucketRecord
-    err = b.client.HGetAll(ctx, key).Scan(&bucketRec)
-    if err != nil && !errors.Is(err, redis.Nil) {
-        return false
-    }
-
-    if uint32(bucketRec.TokenCount)+n <= b.capacity {
-        return true
-    }
-    return false
-}
-
 func (b *LeakyBucket) getKey(ip string) string {
     return ip
 }
@@ -99,7 +77,7 @@ func (b *LeakyBucket) getKey(ip string) string {
 func (b *LeakyBucket) leak(ctx context.Context, ip string) error {
     key := b.getKey(ip)
     now := time.Now().Unix()
-    var bucketRec BucketRecord
+    var bucketRec bucketRecord
     err := b.client.HGetAll(ctx, key).Scan(&bucketRec)
     if err != nil && !errors.Is(err, redis.Nil) {
         return err
