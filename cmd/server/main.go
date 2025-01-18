@@ -23,7 +23,7 @@ func main() {
     mux.HandleFunc("/api/v1/hello", HelloHandler)
 
     // create a rate limiter with Leaky Bucket strategy
-    limiter := ratelimiter.NewLeakyBucketLimiter(redisClient, 1, 5) //
+    limiter := ratelimiter.NewTokenBucketLimiter(redisClient, 0.5, 3)
 
     config := &ratelimiter.Config{
         Extractor: utils.NewHTTPHeadersExtractor("X-Forwarded-For"),
