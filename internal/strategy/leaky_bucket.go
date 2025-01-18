@@ -4,18 +4,23 @@ import (
     "context"
     "errors"
     "fmt"
+    "strconv"
     "sync"
     "time"
 
     "github.com/redis/go-redis/v9"
 )
 
+type BucketRecord struct {
+    TokenCount   float64 `redis:"tokenCount"`
+    LastLeakTime int64   `redis:"lastLeakTime"`
+}
+
 type LeakyBucket struct {
     sync.Mutex
     client       *redis.Client
     rate         float64       // consume rate per second
     queue        chan struct{} // FIFO queue to store request
-    stopChan     chan struct{}
     tokenCount   float64
     capacity     uint32    // maximum capacity of the bucket
     lastLeakTime time.Time // last time the bucket was refilled
@@ -26,7 +31,6 @@ func NewLeakyBucket(client *redis.Client, rate float64, capacity uint32) *LeakyB
         client:       client,
         rate:         rate,
         queue:        make(chan struct{}, capacity),
-        stopChan:     make(chan struct{}),
         tokenCount:   0,
         capacity:     capacity,
         lastLeakTime: time.Now(),
@@ -43,18 +47,22 @@ func (b *LeakyBucket) Capacity() uint32 {
 
 // Add adds a request to the bucket if it's not full
 func (b *LeakyBucket) Add(ctx context.Context, ip string) error {
+    b.Lock()
+    defer b.Unlock()
+
     key := b.getKey(ip)
     err := b.leak(ctx, ip)
     if err != nil {
         return err
     }
 
-    tokenCount, err := b.client.HGet(ctx, key, "tokenCount").Float64()
-    if err != nil && err != redis.Nil {
+    var bucketRec BucketRecord
+    err = b.client.HGetAll(ctx, key).Scan(&bucketRec)
+    if err != nil && !errors.Is(err, redis.Nil) {
         return err
     }
 
-    if tokenCount < float64(b.capacity) {
+    if uint32(bucketRec.TokenCount) < b.capacity {
         _, err = b.client.HIncrByFloat(ctx, key, "tokenCount", 1).Result()
         return err
     }
@@ -62,18 +70,22 @@ func (b *LeakyBucket) Add(ctx context.Context, ip string) error {
 }
 
 func (b *LeakyBucket) Allow(ctx context.Context, ip string, n uint32) bool {
+    b.Lock()
+    defer b.Unlock()
+
     key := b.getKey(ip)
     err := b.leak(ctx, ip)
     if err != nil {
         return false
     }
 
-    tokenCount, err := b.client.HGet(ctx, key, "tokenCount").Float64()
-    if err != nil && err != redis.Nil {
+    var bucketRec BucketRecord
+    err = b.client.HGetAll(ctx, key).Scan(&bucketRec)
+    if err != nil && !errors.Is(err, redis.Nil) {
         return false
     }
 
-    if tokenCount+float64(n) <= float64(b.capacity) {
+    if uint32(bucketRec.TokenCount)+n <= b.capacity {
         return true
     }
     return false
@@ -87,23 +99,24 @@ func (b *LeakyBucket) getKey(ip string) string {
 func (b *LeakyBucket) leak(ctx context.Context, ip string) error {
     key := b.getKey(ip)
     now := time.Now().Unix()
-    lastLeakTime, err := b.client.HGet(ctx, key, "lastLeakTime").Int64()
+    var bucketRec BucketRecord
+    err := b.client.HGetAll(ctx, key).Scan(&bucketRec)
     if err != nil && !errors.Is(err, redis.Nil) {
         return err
     }
 
-    elapsedTime := float64(now - lastLeakTime)
+    elapsedTime := float64(now - bucketRec.LastLeakTime)
     tokensToLeak := elapsedTime * b.rate
-    tokenCount, err := b.client.HGet(ctx, key, "tokenCount").Float64()
-    if err != nil && !errors.Is(err, redis.Nil) {
-        return err
+
+    bucketRec.TokenCount -= tokensToLeak
+    if bucketRec.TokenCount < 0 {
+        bucketRec.TokenCount = 0
     }
 
-    tokenCount -= tokensToLeak
-    if tokenCount < 0 {
-        tokenCount = 0
+    hash := []string{
+        "tokenCount", strconv.FormatFloat(bucketRec.TokenCount, 'f', -1, 64),
+        "lastLeakTime", strconv.FormatInt(now, 10),
     }
-
-    _, err = b.client.HSet(ctx, key, "tokenCount", tokenCount, "lastLeakTime", now).Result()
+    _, err = b.client.HSet(ctx, key, hash).Result()
     return err
 }
