@@ -11,29 +11,27 @@ import (
     "github.com/redis/go-redis/v9"
 )
 
-type bucketRecord struct {
+type leakyBucketRecord struct {
     TokenCount   float64 `redis:"tokenCount"`
     LastLeakTime int64   `redis:"lastLeakTime"`
 }
 
 type LeakyBucket struct {
     sync.Mutex
-    client       *redis.Client
-    rate         float64       // consume rate per second
-    queue        chan struct{} // FIFO queue to store request
-    tokenCount   float64
-    capacity     uint32    // maximum capacity of the bucket
-    lastLeakTime time.Time // last time the bucket was refilled
+    client    *redis.Client
+    rate      float64       // consume rate per second
+    queue     chan struct{} // FIFO queue to store request
+    capacity  uint32        // maximum capacity of the bucket
+    keyPrefix string        // key prefix for bucket records
 }
 
 func NewLeakyBucket(client *redis.Client, rate float64, capacity uint32) *LeakyBucket {
     return &LeakyBucket{
-        client:       client,
-        rate:         rate,
-        queue:        make(chan struct{}, capacity),
-        tokenCount:   0,
-        capacity:     capacity,
-        lastLeakTime: time.Now(),
+        client:    client,
+        rate:      rate,
+        queue:     make(chan struct{}, capacity),
+        capacity:  capacity,
+        keyPrefix: "leaky_bucket:",
     }
 }
 
@@ -51,12 +49,12 @@ func (b *LeakyBucket) Add(ctx context.Context, ip string) error {
     defer b.Unlock()
 
     key := b.getKey(ip)
-    err := b.leak(ctx, ip)
+    err := b.leak(ctx, key)
     if err != nil {
         return err
     }
 
-    var bucketRec bucketRecord
+    var bucketRec leakyBucketRecord
     err = b.client.HGetAll(ctx, key).Scan(&bucketRec)
     if err != nil && !errors.Is(err, redis.Nil) {
         return err
@@ -70,14 +68,13 @@ func (b *LeakyBucket) Add(ctx context.Context, ip string) error {
 }
 
 func (b *LeakyBucket) getKey(ip string) string {
-    return ip
+    return b.keyPrefix + ip
 }
 
 // leak consume a token in queue
-func (b *LeakyBucket) leak(ctx context.Context, ip string) error {
-    key := b.getKey(ip)
+func (b *LeakyBucket) leak(ctx context.Context, key string) error {
     now := time.Now().Unix()
-    var bucketRec bucketRecord
+    var bucketRec leakyBucketRecord
     err := b.client.HGetAll(ctx, key).Scan(&bucketRec)
     if err != nil && !errors.Is(err, redis.Nil) {
         return err
