@@ -1,10 +1,12 @@
 # rate-limiter-with-go
 
-Reference: https://mauricio.github.io/2021/12/30/rate-limiting-in-go.html
+## Rate limiting strategies
+This implementation supports the following rate limiting strategies:
 
-## Environment
-* Go v1.17.9
-* Redis v7.0.0 (default address = "localhost:6379")
+- Token bucket
+- Leaky bucket
+- Fixed window (TODO)
+- Sliding window (TODO)
 
 ## Run this example
 By default, this implementation is used a fixed-window strategy.
