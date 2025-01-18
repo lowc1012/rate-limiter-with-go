@@ -22,7 +22,7 @@ func main() {
     mux := http.NewServeMux()
     mux.HandleFunc("/api/v1/hello", HelloHandler)
 
-    // create a rate limiter with Leaky Bucket strategy
+    // create a rate limiter with a specific strategy
     limiter := ratelimiter.NewTokenBucketLimiter(redisClient, 0.5, 3)
 
     config := &ratelimiter.Config{
