@@ -1,6 +1,6 @@
 # rate-limiter-with-go
 
-## Rate limiting strategies
+## Rate limiting algorithms
 This implementation supports the following rate limiting strategies:
 
 - Token bucket
@@ -8,12 +8,12 @@ This implementation supports the following rate limiting strategies:
 - Fixed window (TODO)
 - Sliding window (TODO)
 
-## Run this example
-By default, this implementation is used a fixed-window strategy.
-Clients are allowed to make 10 requests every minute. Once they 
-go over 10 requests, application start denying the requests 
-letting them know they’re over their quota and need to wait.
+## Storage
+This implementation supports the following storage backends:
+- Redis
+- In-memory (TODO)
 
+## Run this example
     go run main.go
 
     # execute this instruction many times
