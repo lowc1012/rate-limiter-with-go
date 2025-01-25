@@ -3,9 +3,9 @@ package main
 import (
     "net/http"
 
-    "github.com/lowc1012/rate-limiter-with-go/log"
-    "github.com/lowc1012/rate-limiter-with-go/pkg/ratelimiter"
-    "github.com/lowc1012/rate-limiter-with-go/pkg/utils"
+    "github.com/lowc1012/rate-limiter-with-go/internal/log"
+    "github.com/lowc1012/rate-limiter-with-go/internal/ratelimiter"
+    "github.com/lowc1012/rate-limiter-with-go/internal/utils"
     "github.com/redis/go-redis/v9"
     "go.uber.org/zap"
 )

@@ -5,7 +5,7 @@ import (
     "net/http"
     "strconv"
 
-    "github.com/lowc1012/rate-limiter-with-go/pkg/utils"
+    "github.com/lowc1012/rate-limiter-with-go/internal/utils"
 )
 
 var (
